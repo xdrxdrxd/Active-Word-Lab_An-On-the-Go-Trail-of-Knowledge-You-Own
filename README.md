@@ -1,6 +1,6 @@
 # Ge-Vocapp
 
-Ge-Vocapp is a vocabulary learning app that helps users remember English words more effectively using spaced repetition and example-based review. Built with Python and Kivy, it offers real-time translations and contextual example generation in **Chinese and Japanese**, powered by the Gemini API.
+Ge-Vocapp is a vocabulary learning app that helps users remember English words more effectively using spaced repetition and example-based review. Built with Python and Kivy, the app was initially generated using Grok and later extended and customized. It offers real-time translations and contextual example sentence generation in Chinese and Japanese, powered by the Gemini API.
 
 ## 🔍 Features
 
