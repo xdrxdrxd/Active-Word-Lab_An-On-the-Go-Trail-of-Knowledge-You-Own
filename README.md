@@ -46,3 +46,4 @@ See `LICENSE` for details.
 ### Additional licenses for third-party resources:
 - `data/english-word-frequency.csv`: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - `assets/fonts/NotoSansSC-Regular.otf`: [SIL Open Font License 1.1](https://github.com/notofonts/noto-cjk/blob/main/LICENSE)
+
