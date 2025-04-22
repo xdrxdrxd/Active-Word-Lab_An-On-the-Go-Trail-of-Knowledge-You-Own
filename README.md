@@ -1,12 +1,12 @@
 # Ge-Vocapp
 
-Ge-Vocapp is a vocabulary learning app that helps users remember English words more effectively using spaced repetition and example-based review. Built with Grok and powered by Gemini, it offers real-time translations and contextual example generation.
+Ge-Vocapp is a vocabulary learning app that helps users remember English words more effectively using spaced repetition and example-based review. Built with Grok and powered by Gemini, it offers real-time translations and contextual example generation in **Chinese and Japanese**.
 
 ## 🔍 Features
 
 - Spaced repetition memory system
 - Simple interface with three response options: Familiar, Vague, Unfamiliar
-- English-to-Chinese translation with example sentences
+- **English-to-Chinese and English-to-Japanese translation** with example sentences
 - Instant voice playback for words, cached playback for sentences
 - Android-compatible (Python + Kivy)
 - Clean UI with NotoSansSC-Regular font
@@ -23,13 +23,12 @@ Ge-Vocapp is a vocabulary learning app that helps users remember English words m
   The dataset is redistributed here for convenience.
 
 - 🔤 **Font: NotoSansSC-Regular**  
-  Provided by Google Noto Fonts.  
-  Licensed under the [SIL Open Font License 1.1](https://github.com/notofonts/noto-cjk/blob/main/LICENSE).
+  Provided by Google Noto Fonts, licensed under the [SIL Open Font License 1.1](https://github.com/notofonts/noto-cjk/blob/main/LICENSE).
 
 ## 🔐 API Key & Model Setup
 
 To use Gemini API features, you must provide your own API key and preferred model (e.g., `gemini-1.5-flash`).  
-These are securely stored in a local SQLite database (`vocabulary.db`) and are **not hardcoded** in the source code.
+These are securely stored in a local SQLite database (`vocabulary.db`) and **not hardcoded in the source code**.
 
 Keys can be set via the in-app settings screen, or manually inserted into the database (not recommended for general users).
 
@@ -44,7 +43,6 @@ Keys can be set via the in-app settings screen, or manually inserted into the da
 This project is licensed under the MIT License.  
 See `LICENSE` for details.
 
-Additional licenses for third-party resources:
-
+### Additional licenses for third-party resources:
 - `data/english-word-frequency.csv`: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - `assets/fonts/NotoSansSC-Regular.otf`: [SIL Open Font License 1.1](https://github.com/notofonts/noto-cjk/blob/main/LICENSE)
