@@ -30,8 +30,12 @@ This software bundle includes the following third-party resources:
    Source: [Kaggle - Rachael Tatman](https://www.kaggle.com/datasets/rtatman/english-word-frequency)  
    License: [CC0 1.0 (Public Domain)](https://creativecommons.org/publicdomain/zero/1.0/)
 
-2. **NotoSansSC-Regular.otf**  
+2. **NotoSansSC-Regular.ttf**  
    Source: [Google Noto Fonts](https://notofonts.github.io)  
    License: [SIL Open Font License 1.1](https://github.com/notofonts/noto-cjk/blob/main/LICENSE)
+
+3. **icon.png**  
+   Artwork by [@Biggg48763](https://twitter.com/Biggg48763)  
+   This image is original artwork created by the project owner and is released under the same license as the project (MIT License).
 
 All third-party resources are redistributed for convenience and remain under their original licenses.
