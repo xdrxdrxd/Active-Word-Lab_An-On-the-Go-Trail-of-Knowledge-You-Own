@@ -1,0 +1,25 @@
+# 資料庫檔案（儲存 API 密鑰）
+vocabulary.db
+vocabulary_export.csv
+
+# 音訊快取（程式生成的語音檔案）
+audio/
+
+# Python 編譯檔案
+*.pyc
+__pycache__/
+
+# 臨時檔案
+*~
+*.bak
+
+# 日誌檔案
+*.log
+
+# 打包生成的檔案（PyInstaller 或 Buildozer）
+build/
+dist/
+*.spec
+
+# 環境檔案
+.env
