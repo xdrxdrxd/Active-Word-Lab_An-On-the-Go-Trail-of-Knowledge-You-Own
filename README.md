@@ -91,7 +91,7 @@ To customize the icon:
 
 ```ini
 [app]
-icon = app/icon.png
+icon.filename = app/icon.png
 ```
 
 ## 🔒 Privacy Statement
