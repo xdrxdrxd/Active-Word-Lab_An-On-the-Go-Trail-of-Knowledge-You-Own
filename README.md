@@ -4,12 +4,15 @@ Active Word Lab: An On-the-Go Toolkit for You is a vocabulary learning app that 
 
 ## 🔍 Features
 
-- Spaced repetition memory system  
-- Simple interface with three response options: **Familiar**, **Vague**, **Unfamiliar**  
-- English-to-Chinese and English-to-Japanese translation with example sentences  
-- Instant voice playback for words, cached playback for sentences  
-- Android-compatible (Python + Kivy)  
-- Clean UI with NotoSansSC-Regular font  
+- Advanced spaced repetition memory system  
+- Navigable, intuitive interface with three response options: **Familiar**, **Vague**, **Unfamiliar**  
+- Optimized English-to-Chinese and English-to-Japanese translations with example sentences  
+- Native voice playback for words and cached playback for sentences  
+- Tailored for Android compatibility (Python + Kivy)  
+- Optimal UI with NotoSansSC-Regular font  
+- Key features designed for efficient language learning  
+- Yield measurable progress through personalized repetition schedules  
+- Optimized for both beginner and advanced learners
 
 ## ⚙️ Powered By
 
