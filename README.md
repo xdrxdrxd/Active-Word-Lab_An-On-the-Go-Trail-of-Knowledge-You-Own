@@ -1,6 +1,6 @@
-# Active Word Lab: An On-the-Go Toolkit for You
+# Active Word Lab: An On-the-Go Trail of Knowledge You Own
 
-Active Word Lab: An On-the-Go Toolkit for You is a vocabulary learning app that helps users remember English words more effectively using spaced repetition and example-based review. Built with Python and Kivy, the app was initially generated using Grok and later extended and customized. It offers real-time translations and contextual example sentence generation in Chinese and Japanese, powered by the Gemini API.
+Active Word Lab: An On-the-Go Trail of Knowledge You Own is a vocabulary learning app that helps users remember English words more effectively using spaced repetition and example-based review. Built with Python and Kivy, the app was initially generated using Grok and later extended and customized. It offers real-time translations and contextual example sentence generation in Chinese and Japanese, powered by the Gemini API.
 
 ## 🔍 Features
 
