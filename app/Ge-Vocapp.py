@@ -5,6 +5,7 @@ import datetime
 import csv
 import logging
 import re
+import time
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
@@ -21,6 +22,7 @@ from kivy.config import Config
 from kivy.core.audio import SoundLoader
 from kivy.metrics import dp
 from kivy.utils import platform
+from kivy.uix.textinput import TextInput
 from gtts import gTTS
 import google.generativeai as genai
 from google.api_core import exceptions
@@ -262,10 +264,11 @@ def reset_database():
     logging.info("Words table reset")
 
 def check_database_stats():
-    """Check database statistics."""
+    """Check database statistics and detect missing translations."""
     conn = DatabaseManager.get_connection()
     c = conn.cursor()
     stats = {}
+    missing_translations = []
     try:
         c.execute("SELECT COUNT(*) FROM words")
         stats['total'] = c.fetchone()[0]
@@ -275,49 +278,82 @@ def check_database_stats():
         stats['learned_not_mastered'] = c.fetchone()[0]
         c.execute("SELECT COUNT(*) FROM words WHERE mastered=1")
         stats['mastered'] = c.fetchone()[0]
-        logging.info(f"Database stats: total={stats['total']}, unlearned={stats['unlearned']}, learned_not_mastered={stats['learned_not_mastered']}, mastered={stats['mastered']}")
+        c.execute("SELECT id, word FROM words WHERE zh_translation IS NULL OR ja_translation IS NULL OR example IS NULL OR zh_example_translation IS NULL OR ja_example_translation IS NULL")
+        missing_translations = c.fetchall()
+        stats['missing_translations'] = len(missing_translations)
+        logging.info(f"Database stats: total={stats['total']}, unlearned={stats['unlearned']}, learned_not_mastered={stats['learned_not_mastered']}, mastered={stats['mastered']}, missing_translations={stats['missing_translations']}")
     except Exception as e:
         logging.error(f"Failed to check database stats: {e}")
-    return stats
+    return stats, missing_translations
 
 def is_valid_word(word):
     """Check if the word contains only letters."""
     return bool(word and re.match(r'^[a-zA-Z]+$', word))
 
-def fetch_word_details(word):
-    """Fetch word details from Gemini API."""
+def fetch_word_details(word, max_retries=5, initial_delay=1):
+    """Fetch word details from Gemini API with retry mechanism."""
     example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense = '', '', '', '', '', '未知', '未知'
-    try:
-        model = genai.GenerativeModel(get_api_model())
-        prompt = (f"Provide the following for the English word '{word}':\n"
-                  f"1. Its direct Chinese translation in Traditional Chinese (no pinyin).\n"
-                  f"2. Its direct Japanese translation (no romaji).\n"
-                  f"3. An example sentence using the word.\n"
-                  f"4. The Chinese translation of the example sentence in Traditional Chinese (no pinyin).\n"
-                  f"5. The Japanese translation of the example sentence (no romaji).\n"
-                  f"6. Part of speech.\n"
-                  f"7. Tense changes (if applicable).\n"
-                  f"Format as:\n"
-                  f"Chinese Translation: <zh_trans>\n"
-                  f"Japanese Translation: <ja_trans>\n"
-                  f"Example: <sentence>\n"
-                  f"Chinese Example Translation: <zh_example_trans>\n"
-                  f"Japanese Example Translation: <ja_example_trans>\n"
-                  f"Part of Speech: <pos>\n"
-                  f"Tense Changes: <tense>")
-        resp = model.generate_content(prompt)
-        lines = [l for l in resp.text.strip().split('\n') if l]
-        zh_trans = lines[0].replace('Chinese Translation: ', '') if len(lines) > 0 else ''
-        ja_trans = lines[1].replace('Japanese Translation: ', '') if len(lines) > 1 else ''
-        example = lines[2].replace('Example: ', '') if len(lines) > 2 else ''
-        zh_example_trans = lines[3].replace('Chinese Example Translation: ', '') if len(lines) > 3 else ''
-        ja_example_trans = lines[4].replace('Japanese Example Translation: ', '') if len(lines) > 4 else ''
-        pos = lines[5].replace('Part of Speech: ', '') if len(lines) > 5 and lines[5].replace('Part of Speech: ', '') else '未知'
-        tense = lines[6].replace('Tense Changes: ', '') if len(lines) > 6 and lines[6].replace('Tense Changes: ', '') else '未知'
-        logging.info(f"Fetched details for word {word}: POS={pos}, tense={tense}, zh_trans={zh_trans}, ja_trans={ja_trans}")
-    except Exception as e:
-        logging.error(f"Failed to fetch details for word {word}: {e}")
-    return example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense
+    delay = initial_delay
+    for attempt in range(max_retries):
+        try:
+            model = genai.GenerativeModel(get_api_model())
+            prompt = (f"Provide the following for the English word '{word}':\n"
+                      f"1. Its direct Chinese translation in Traditional Chinese (no pinyin).\n"
+                      f"2. Its direct Japanese translation (no romaji).\n"
+                      f"3. An example sentence using the word.\n"
+                      f"4. The Chinese translation of the example sentence in Traditional Chinese (no pinyin).\n"
+                      f"5. The Japanese translation of the example sentence (no romaji).\n"
+                      f"6. Part of speech.\n"
+                      f"7. Tense changes (if applicable).\n"
+                      f"Format as:\n"
+                      f"Chinese Translation: <zh_trans>\n"
+                      f"Japanese Translation: <ja_trans>\n"
+                      f"Example: <sentence>\n"
+                      f"Chinese Example Translation: <zh_example_trans>\n"
+                      f"Japanese Example Translation: <ja_example_trans>\n"
+                      f"Part of Speech: <pos>\n"
+                      f"Tense Changes: <tense>")
+            resp = model.generate_content(prompt)
+            lines = [l for l in resp.text.strip().split('\n') if l]
+            zh_trans = lines[0].replace('Chinese Translation: ', '') if len(lines) > 0 else ''
+            ja_trans = lines[1].replace('Japanese Translation: ', '') if len(lines) > 1 else ''
+            example = lines[2].replace('Example: ', '') if len(lines) > 2 else ''
+            zh_example_trans = lines[3].replace('Chinese Example Translation: ', '') if len(lines) > 3 else ''
+            ja_example_trans = lines[4].replace('Japanese Example Translation: ', '') if len(lines) > 4 else ''
+            pos = lines[5].replace('Part of Speech: ', '') if len(lines) > 5 and lines[5].replace('Part of Speech: ', '') else '未知'
+            tense = lines[6].replace('Tense Changes: ', '') if len(lines) > 6 and lines[6].replace('Tense Changes: ', '') else '未知'
+            logging.info(f"Fetched details for word {word}: POS={pos}, tense={tense}, zh_trans={zh_trans}, ja_trans={ja_trans}")
+            return example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense
+        except exceptions.ResourceExhausted as e:
+            if attempt < max_retries - 1:
+                logging.warning(f"Rate limit hit for word {word}, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(delay)
+                delay *= 2  # Exponential backoff
+            else:
+                logging.error(f"Max retries reached for word {word}: {e}")
+                raise
+        except Exception as e:
+            logging.error(f"Failed to fetch details for word {word}: {e}")
+            raise
+
+def fill_missing_translations(missing_translations):
+    """Fill missing translations for words in the database."""
+    conn = DatabaseManager.get_connection()
+    cur = conn.cursor()
+    count = 0
+    for word_id, word in missing_translations:
+        try:
+            example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense = fetch_word_details(word)
+            cur.execute('''UPDATE words SET example=?, zh_translation=?, ja_translation=?, 
+                         zh_example_translation=?, ja_example_translation=?, pos=?, tense=? 
+                         WHERE id=?''',
+                       (example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense, word_id))
+            conn.commit()
+            count += 1
+            logging.info(f"Filled missing translations for word {word}")
+        except Exception as e:
+            logging.error(f"Failed to fill translations for word {word}: {e}")
+    return count
 
 def import_words_from_csv():
     """Import words from CSV file."""
@@ -546,12 +582,13 @@ class MainMenu(Screen):
         self.status_label.text = f'已匯入 {count} 個單字'
 
     def check_database(self, instance):
-        stats = check_database_stats()
+        stats, missing_translations = check_database_stats()
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
         stats_text = (f"總單字數：{stats['total']}\n"
                       f"未學習：{stats['unlearned']}\n"
                       f"已學習未掌握：{stats['learned_not_mastered']}\n"
-                      f"已掌握：{stats['mastered']}")
+                      f"已掌握：{stats['mastered']}\n"
+                      f"缺少翻譯：{stats['missing_translations']}")
         stats_label = Label(
             text=stats_text,
             font_name='CustomFont',
@@ -562,6 +599,15 @@ class MainMenu(Screen):
             height=max(120, Window.height * 0.2)
         )
         stats_label.bind(size=lambda instance, value: setattr(stats_label, 'text_size', (stats_label.width * 0.9, None)))
+        
+        fill_btn = Button(
+            text='修復缺少的翻譯',
+            font_name='CustomFont',
+            size_hint_y=None,
+            height=max(48, Window.height * 0.06),
+            font_size=max(18, Window.width * 0.03),
+            disabled=len(missing_translations) == 0
+        )
         close_btn = Button(
             text='關閉',
             font_name='CustomFont',
@@ -570,6 +616,7 @@ class MainMenu(Screen):
             font_size=max(18, Window.width * 0.03)
         )
         content.add_widget(stats_label)
+        content.add_widget(fill_btn)
         content.add_widget(close_btn)
         popup = Popup(
             title='資料庫統計',
@@ -578,9 +625,20 @@ class MainMenu(Screen):
             content=content,
             size_hint=(0.8, 0.6)
         )
+        
+        def fill_missing(instance):
+            popup.dismiss()
+            self.status_label.text = '正在修復缺少的翻譯...'
+            Clock.schedule_once(lambda dt: self._fill_missing_thread(missing_translations), 0)
+        
+        fill_btn.bind(on_press=fill_missing)
         close_btn.bind(on_press=popup.dismiss)
         popup.open()
         logging.info("Displayed database stats popup")
+
+    def _fill_missing_thread(self, missing_translations):
+        count = fill_missing_translations(missing_translations)
+        self.status_label.text = f'已修復 {count} 個單字的翻譯'
 
 # ─── Settings Screen for API Key and Model ─────────────────────────────────────────────────────────
 class SettingsScreen(Screen):
@@ -731,16 +789,19 @@ class WordScreen(Screen):
         )
         self.lbl_word.bind(size=lambda instance, value: setattr(self.lbl_word, 'text_size', (self.lbl_word.width * 0.9, None)))
 
+        # Scrollable translation area
+        trans_scroll = ScrollView(size_hint_y=None, height=max(100, Window.height * 0.12), do_scroll_x=False, do_scroll_y=True)
         self.lbl_trans = Label(
             font_size=24,
             font_name='CustomFont',
             size_hint_y=None,
             height=max(100, Window.height * 0.12),
             halign='left',
-            valign='middle',
+            valign='top',
             opacity=0
         )
         self.lbl_trans.bind(size=lambda instance, value: setattr(self.lbl_trans, 'text_size', (self.lbl_trans.width * 0.9, None)))
+        trans_scroll.add_widget(self.lbl_trans)
 
         self.lbl_example = Label(
             font_size=24,
@@ -752,6 +813,8 @@ class WordScreen(Screen):
         )
         self.lbl_example.bind(size=lambda instance, value: setattr(self.lbl_example, 'text_size', (self.lbl_example.width * 0.9, None)))
 
+        # Scrollable example translation area
+        example_trans_scroll = ScrollView(size_hint_y=None, height=max(140, Window.height * 0.18), do_scroll_x=False, do_scroll_y=True)
         self.lbl_example_trans = Label(
             font_size=24,
             font_name='CustomFont',
@@ -762,6 +825,7 @@ class WordScreen(Screen):
             opacity=0
         )
         self.lbl_example_trans.bind(size=lambda instance, value: setattr(self.lbl_example_trans, 'text_size', (self.lbl_example_trans.width * 0.9, None)))
+        example_trans_scroll.add_widget(self.lbl_example_trans)
 
         self.lbl_detail = Label(
             font_size=20,
@@ -824,10 +888,10 @@ class WordScreen(Screen):
 
         self.layout.add_widget(self.lbl_progress)
         self.layout.add_widget(self.lbl_word)
-        self.layout.add_widget(self.lbl_trans)
+        self.layout.add_widget(trans_scroll)
         self.layout.add_widget(btn_audio)
         self.layout.add_widget(self.lbl_example)
-        self.layout.add_widget(self.lbl_example_trans)
+        self.layout.add_widget(example_trans_scroll)
         self.layout.add_widget(btn_show)
         self.layout.add_widget(self.lbl_detail)
         self.layout.add_widget(btn_mastered)
@@ -957,6 +1021,7 @@ class WordScreen(Screen):
         trans_len = len(self.lbl_trans.text)
         base_trans_size = sizes['trans'] * base_scale
         self.lbl_trans.font_size = min(base_trans_size, sizes['trans'] if trans_len < 70 else sizes['trans'] * 0.8 if trans_len < 140 else sizes['trans'] * 0.7)
+        self.lbl_trans.height = max(100, Window.height * 0.12, self.lbl_trans.texture_size[1] + dp(10))
 
         example_len = len(self.lbl_example.text)
         base_example_size = sizes['example'] * base_scale
@@ -965,6 +1030,7 @@ class WordScreen(Screen):
         example_trans_len = len(self.lbl_example_trans.text)
         base_example_trans_size = sizes['example_trans'] * base_scale
         self.lbl_example_trans.font_size = min(base_example_trans_size, sizes['example_trans'] if example_trans_len < 140 else sizes['example_trans'] * 0.8 if example_trans_len < 280 else sizes['example_trans'] * 0.7)
+        self.lbl_example_trans.height = max(140, Window.height * 0.18, self.lbl_example_trans.texture_size[1] + dp(10))
 
         self.lbl_detail.font_size = min(sizes['detail'] * base_scale, sizes['detail'])
 
@@ -1012,6 +1078,7 @@ class WordScreen(Screen):
     def play(self):
         play_word(self.lbl_word.text)
 
+# ─── Add Word Screen ─────────────────────────────────────────────────────────
 # ─── Add Word Screen ─────────────────────────────────────────────────────────
 class AddWordScreen(Screen):
     def __init__(self, **kw):
@@ -1135,9 +1202,16 @@ class AddWordScreen(Screen):
                 if cur.fetchone()[0] > 0:
                     self.status_label.text = f'單字 {word} 已存在'
                     return
-                cur.execute('''INSERT INTO words (word, example, zh_translation, ja_translation, familiarity, learned, mastered, interval) 
-                               VALUES (?, ?, ?, ?, 1, 0, 0, 1)''', 
-                            (word, self.input_example.text, self.input_zh_translation.text, self.input_ja_translation.text))
+                example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense = fetch_word_details(word)
+                cur.execute('''INSERT INTO words (word, example, zh_translation, ja_translation, 
+                              zh_example_translation, ja_example_translation, pos, tense, 
+                              familiarity, learned, mastered, interval) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 1)''', 
+                           (word, 
+                            example or self.input_example.text.strip(), 
+                            zh_trans or self.input_zh_translation.text.strip(), 
+                            ja_trans or self.input_ja_translation.text.strip(),
+                            zh_example_trans, ja_example_trans, pos, tense))
                 conn.commit()
                 logging.info(f"Added word: {word}")
                 self.status_label.text = f'成功新增單字：{word}'
@@ -1150,9 +1224,11 @@ class AddWordScreen(Screen):
                         continue
                     try:
                         example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense = fetch_word_details(w)
-                        cur.execute('''INSERT INTO words (word, example, zh_translation, ja_translation, zh_example_translation, ja_example_translation, pos, tense, familiarity, learned, mastered, interval) 
-                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 1)''', 
-                                    (w, example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense))
+                        cur.execute('''INSERT INTO words (word, example, zh_translation, ja_translation, 
+                                      zh_example_translation, ja_example_translation, pos, tense, 
+                                      familiarity, learned, mastered, interval) 
+                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 1)''', 
+                                   (w, example, zh_trans, ja_trans, zh_example_trans, ja_example_trans, pos, tense))
                         count += 1
                         logging.info(f"Added word from dataset: {w}")
                     except Exception as e:
@@ -1185,12 +1261,13 @@ class HelpScreen(Screen):
         - 新增單字：新增單字（留空則從資料集獲取指定數量單字）
         - 匯入單字：從 vocabulary_export.csv 匯入單字
         - 匯出：將單字資料庫匯出為 CSV
-        - 檢查資料庫：以彈出視窗查看資料庫統計資訊
+        - 檢查資料庫：以彈出視窗查看資料庫統計資訊並修復缺少的翻譯
         - 重製資料庫：清除所有單字（請先匯出以備份）
         - 設置 API 金鑰：輸入、更新或清除 Gemini API 金鑰和模型
         - 按「播放」按鈕播放單字發音
         - 點擊「顯示翻譯」查看單字和例句的中日文翻譯
         - 字體大小：右上角「大」「中」「小」按鈕調整字體
+        - 翻譯內容：若翻譯內容過長，可上下捲動查看
         '''
         lbl_help = Label(
             text=help_text,
