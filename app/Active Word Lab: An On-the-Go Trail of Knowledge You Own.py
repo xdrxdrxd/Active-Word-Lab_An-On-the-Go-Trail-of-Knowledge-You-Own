@@ -1079,7 +1079,6 @@ class WordScreen(Screen):
         play_word(self.lbl_word.text)
 
 # ─── Add Word Screen ─────────────────────────────────────────────────────────
-# ─── Add Word Screen ─────────────────────────────────────────────────────────
 class AddWordScreen(Screen):
     def __init__(self, **kw):
         super().__init__(**kw)
